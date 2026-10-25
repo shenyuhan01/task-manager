@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>智能任务管理系统</title>
+  <style>
+    *{box-sizing:border-box;font-family:system-ui,sans-serif;margin:0;padding:0;}
+    body{max-width:800px;margin:30px auto;padding:0 20px;background:#f5f7fa;}
+    h1{text-align:center;color:#222;margin-bottom:24px;font-size:24px;}
+    .add-area{background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    input,select,button{padding:10px;font-size:16px;border-radius:6px;border:1px solid #ccc;}
+    input{flex:1;min-width:200px;}
+    button{cursor:pointer;border:none;background:#3b82f6;color:#fff;}
+    .filter-area{margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;}
+    .filter-area button{background:#94a3b8;}
+    .filter-area button.active{background:#3b82f6;}
+    .task-item{background:#fff;padding:16px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+    .task-info{flex:1;}
+    .task-title{font-size:17px;}
+    .done{text-decoration:line-through;color:#888;}
+    .priority{display:inline-block;padding:3px 8px;border-radius:4px;color:#fff;font-size:13px;margin-left:8px;}
+    .p-high{background:#ef4444;}
+    .p-mid{background:#f59e0b;}
+    .p-low{background:#22c55e;}
+    .task-actions{display:flex;gap:8px;}
+    .btn-toggle{background:#10b981;}
+    .btn-del{background:#ef4444;}
+  </style>
+</head>
+<body>
+  <h1>智能任务管理系统</h1>
+  <div class="add-area">
+    <input id="titleInput" placeholder="输入任务内容">
+    <select id="prioritySelect">
+      <option value="高">高优先级</option>
+      <option value="中" selected>中优先级</option>
+      <option value="低">低优先级</option>
+    </select>
+    <button onclick="addTask()">添加任务</button>
+  </div>
+  <div class="filter-area">
+    <button class="active" onclick="changeFilter('全部',this)">全部</button>
+    <button onclick="changeFilter('高',this)">高</button>
+    <button onclick="changeFilter('中',this)">中</button>
+    <button onclick="changeFilter('低',this)">低</button>
+  </div>
+  <div id="taskList"></div>
+
+  <script>
+    let nowFilter = "全部";
+    let allFilterBtn = document.querySelectorAll('.filter-area button');
+
+    async function loadTask() {
+      let url = '/api/tasks';
+      if (nowFilter !== "全部") url += `?filter=${nowFilter}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      render(json.data);
+    }
+
+    function render(list) {
+      const box = document.getElementById('taskList');
+      box.innerHTML = "";
+      list.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "task-item";
+        div.innerHTML = `
+          <div class="task-info">
+            <span class="task-title ${item.completed ? 'done' : ''}">${item.title}</span>
+            <span class="priority p-${item.priority === '高' ? 'high' : item.priority === '中' ? 'mid' : 'low'}">${item.priority}</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-toggle" onclick="switchStatus(${item.id}, ${!item.completed})">${item.completed ? '未完成' : '完成'}</button>
+            <button class="btn-del" onclick="delTask(${item.id})">删除</button>
+          </div>
+        `;
+        box.appendChild(div);
+      })
+    }
+
+    async function addTask() {
+      const title = document.getElementById('titleInput').value.trim();
+      const priority = document.getElementById('prioritySelect').value;
+      if (!title) { alert("请输入任务内容！"); return; }
+      await fetch('/api/tasks', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, priority })
+      });
+      document.getElementById('titleInput').value = "";
+      loadTask();
+    }
+
+    async function switchStatus(id, status) {
+      await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: status })
+      });
+      loadTask();
+    }
+
+    async function delTask(id) {
+      if (!confirm("确定删除这条任务？")) return;
+      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      loadTask();
+    }
+
+    function changeFilter(val, btn) {
+      nowFilter = val;
+      allFilterBtn.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadTask();
+    }
+
+    loadTask();
+  </script>
+</body>
+</html>
